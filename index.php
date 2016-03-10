@@ -1,5 +1,5 @@
 <?php
-
+require_once('weixin_getdata.php');
 define("TOKEN", "jntz");
 $wechatObj = new wechatCallbackapiTest();
 if (isset($_GET['echostr'])) {
@@ -18,6 +18,7 @@ class wechatCallbackapiTest
             exit;
         }
     }
+
 
     //检查签名
     private function checkSignature()
@@ -40,7 +41,7 @@ class wechatCallbackapiTest
     }
 
     //消息回复
-  public function responseMsg()
+    public function responseMsg()
     {
         $postStr = $GLOBALS["HTTP_RAW_POST_DATA"];
         if (!empty($postStr)){
@@ -75,12 +76,50 @@ class wechatCallbackapiTest
             exit;
         }
     }
-    
-    
+
+
     //接收文本
     private function receiveText($object)
     {
-        $keyword = trim($object->Content);
+        /*$keyword = trim($object->Content);
+        if($keyword == "时间" || $keyword == "测试"){
+            $content = date("Y-m-d H:i:s",time());
+            $result = $this->transmitText($object, $content);
+        }
+        //触发多客服模式
+        else if (strstr($keyword, "您好") || strstr($keyword, "你好") || strstr($keyword, "在吗") || strstr($keyword, "有人吗")){
+            $result = $this->transmitService($object);
+            return $result;
+        }
+        return $result;*/
+
+        /* $keyword = trim($object->Content);
+        $mmc = memcache_init();
+        $service = memcache_get($mmc, "service");
+        
+		
+        //当前有人工客服对话
+        if ($service){
+            $relation = json_decode($service, true);
+            //用户处在人工客服交互中
+            if (in_array($object->FromUserName, $relation)){
+                require_once('weixin.class.php');
+                $to = ($relation['from'] == strval($object->FromUserName))?$relation['to']:$relation['from'];
+                 $result=$this->transmitService($object); 
+                $weixin = new class_weixin();
+                $weixin->send_custom_msg($to, "text", $keyword);
+                return $result;
+            }
+        }
+        
+        $content = "";
+        if (is_array($content)){
+            $result = $this->transmitNews($object, $content);
+        }else{
+            $result = $this->transmitText($object, $content);
+        }
+        return $result;*/
+
         $category = substr($keyword,0,6);
         $code = trim(substr($keyword,6,strlen($keyword)));
         switch ($category)
@@ -97,6 +136,8 @@ class wechatCallbackapiTest
                 $content = "不支持的命令";
                 break;
         }
+
+
         if(is_array($content)){
             $result = $this->transmitNews($object, $content);
         }else{
@@ -104,44 +145,7 @@ class wechatCallbackapiTest
         }
         return $result;
     }
-     /*private function receiveText($object)
-    {
-        $keyword = trim($object->Content);
 
-        if($keyword == "文本"){
-            //回复文本消息
-            $content = "这是个文本消息";
-            $result = $this->transmitText($object, $content);
-        }
-        else if($keyword == "图文" || $keyword == "单图文"){
-            //回复单图文消息
-            $content = array();
-            $content[] = array("Title"=>"单图文标题", 
-                                "Description"=>"单图文内容", 
-                                "PicUrl"=>"http://discuz.comli.com/weixin/weather/icon/cartoon.jpg", 
-                                "Url" =>"http://m.cnblogs.com/?u=txw1958");
-            $result = $this->transmitNews($object, $content);
-        }
-        else if($keyword == "多图文"){
-            //回复多图文消息
-            $content = array();
-            $content[] = array("Title"=>"多图文1标题", "Description"=>"", "PicUrl"=>"http://discuz.comli.com/weixin/weather/icon/cartoon.jpg", "Url" =>"http://m.cnblogs.com/?u=txw1958");
-            $content[] = array("Title"=>"多图文2标题", "Description"=>"", "PicUrl"=>"http://d.hiphotos.bdimg.com/wisegame/pic/item/f3529822720e0cf3ac9f1ada0846f21fbe09aaa3.jpg", "Url" =>"http://m.cnblogs.com/?u=txw1958");
-            $content[] = array("Title"=>"多图文3标题", "Description"=>"", "PicUrl"=>"http://g.hiphotos.bdimg.com/wisegame/pic/item/18cb0a46f21fbe090d338acc6a600c338644adfd.jpg", "Url" =>"http://m.cnblogs.com/?u=txw1958");
-            $result = $this->transmitNews($object, $content);
-           
-        }
-        else if($keyword == "音乐"){
-            //回复音乐消息
-            $content = array("Title"=>"最炫民族风", 
-            "Description"=>"歌手：凤凰传奇", 
-            "MusicUrl"=>"http://121.199.4.61/music/zxmzf.mp3",
-            "HQMusicUrl"=>"http://121.199.4.61/music/zxmzf.mp3");
-            $result = $this->transmitMusic($object, $content);
-        }
-        
-        return $result;
-    }*/
 
     //接收图片
     private function receiveImage($object)
@@ -152,7 +156,7 @@ class wechatCallbackapiTest
         return $result;
     }
 
-    
+
     //接收声音
     private function receiveVoice($object)
     {
@@ -169,117 +173,154 @@ class wechatCallbackapiTest
         $content = array("MediaId"=>$object->MediaId, "ThumbMediaId"=>$object->ThumbMediaId, "Title"=>"", "Description"=>"");
         $result = $this->transmitVideo($object, $content);;
         return $result;
-    }  
-    
+    }
+
     //接收关注、取消、菜单点击事件
     private function receiveEvent($object)
-{
-    $content= "";
-    switch ($object->Event)
     {
-        case "subscribe":
-            $content ="欢迎关注巨牛金融"; 
-            break;
-        case "unsubscribe":
-            break;
-        case "CLICK":
-            switch ($object->EventKey)
-            {
-                case "香港总部":
-                    $content[]=array( 
-                        "Title"=>"地址：香港尖沙咀科学馆道1号康宏广场北座16楼
+        $content= "";
+        switch ($object->Event)
+        {
+            case "subscribe":
+                $content ="欢迎关注巨牛金融!了解最新市场动态资讯及相关产品信息，请点击“微官网”。";
+                break;
+            case "unsubscribe":
+                break;
+            case "CLICK":
+                switch ($object->EventKey)
+                {
+
+                    case "联系我们":
+                        //香港总部
+                        $content[]=array(
+                            "Title"=>"香港总部
+地址：香港尖沙咀科学馆道1号康宏广场北座16楼
 16/F, Suite North, Concordia Plaza, No.1 Science Museum Rd., Tsim Sha Tsui, Kowloon, HK                             
 电话(Tel)：00852-69545869",
-                        "Description"=>"",
-                        "PicUrl"=>"http://s2.sinaimg.cn/bmiddle/48ebe3bc06dbf34fdf1c1",
-                        "Url"=>"http://j.map.baidu.com/TlwPy");
-                break;
-                
-           
-                case "广州分部":
-                    $content[]=array(
-                        "Title"=>"地址：广东省广州市越秀区东风东路268号广州交易广场1906室 
-Rm.1906, Guangzhou Exchange Square, No.268 Dongfeng Rd.(east), Yuexiu District, Guangzhou, Guangdong Prov. 
+                            "Description"=>"",
+                            "PicUrl"=>"http://s2.sinaimg.cn/bmiddle/48ebe3bc06dbf34fdf1c1",
+                            "Url"=>"http://j.map.baidu.com/TlwPy");
+
+                        //广州分部
+                        $content[]=array(
+                            "Title"=>"广州分部
+地址：广东省广州市越秀区东风东路268号广州交易广场1906室 
+Rm.1906, Guangzhou Exchange Square, No.268 Dongfeng Rd.(east), Yuexiu District, Guangzhou City, Guangdong Prov. 
 电话(Tel)：020-83191139",
-                        "Description"=>"",                        "PicUrl"=>"http://hiphotos.baidu.com/lbsugc/pic/item/0bd162d9f2d3572c0cb3a1bd8813632762d0c379.jpg",
-                        "Url"=>"http://j.map.baidu.com/6QGsl");
-                break;
-                
-                case "南海分部":
-                    $content[]=array(
-                        "Title"=>"地址：广东省佛山市南海区桂城南桂东路17号邮政局大楼9楼 
-9/F, The Post Office building, No.17 Nangui Rd.(east), Guicheng, Nanhai District, Foshan, Guangdong Prov. 
+                            "Description"=>"",
+                            "PicUrl"=>"http://hiphotos.baidu.com/lbsugc/pic/item/0bd162d9f2d3572c0cb3a1bd8813632762d0c379.jpg",
+                            "Url"=>"http://j.map.baidu.com/6QGsl");
+
+                        //天河分部
+                        $content[]=array(
+                            "Title"=>"天河分部
+地址：广东省广州市天河区体育西路101号维多利广场A座3105室
+Rm.3105, Guangzhou Victory Square, No.101 Tiyu Rd.(west), Tianhe District, Guangzhou City, Guangdong Prov.
+电话(Tel)：020-38479550",
+                            "Description"=>"",
+                            "PicUrl"=>"https://mmbiz.qlogo.cn/mmbiz/icJia8DFEzGtEMUSjL6F6drIddDl0icZfkWBTiaWa09v2WnCBvp7PHgiaDQF2X5B0laMTOw7G74VhvF1gnJ8M32pPKg/0?wx_fmt=jpeg",
+                            "Url"=>"http://j.map.baidu.com/LspBq");
+
+                        //南海分部
+                        $content[]=array(
+                            "Title"=>"南海分部
+地址：广东省佛山市南海区桂城南桂东路17号邮政局大楼9楼 
+9/F, The Post Office building, No.17 Nangui Rd.(east), Guicheng, Nanhai District, Foshan City, Guangdong Prov. 
 电话(Tel)：0757-86332066",
-                        "Description"=>"",
-                        "PicUrl"=>"http://store.is.autonavi.com/showpic/d563c29c2e5c9fe4a07d399583fa84a7",
-                        "Url"=>"http://amap.com/077no8");
-                break;
-                
-                case "顺德分部":
-                    $content[]=array(
-                        "Title"=>"地址：广东省佛山市顺德区大良镇新桂中路明日广场A座803室 
-Rm.803, Suite A, Tomorrow Square, Xingui middle Rd., Daliang Town, Shunde District, Foshan, Guangdong Prov. 
+                            "Description"=>"",
+                            "PicUrl"=>"http://store.is.autonavi.com/showpic/d563c29c2e5c9fe4a07d399583fa84a7",
+                            "Url"=>"http://amap.com/077no8");
+
+                        //顺德分部
+                        $content[]=array(
+                            "Title"=>"顺德分部
+地址：广东省佛山市顺德区大良镇新桂中路明日广场A座803室 
+Rm.803, Suite A, Tomorrow Square, Xingui middle Rd., Daliang Town, Shunde District, Foshan City, Guangdong Prov. 
 电话(Tel)：0757-22275272",
-                        "Description"=>"",
-                        "PicUrl"=>"http://www.sd888.org/house/Upload/2009911542573175.jpg",
-                        "Url"=>"http://j.map.baidu.com/-Ajy0");
-                break;
-                
-                case "成都分部":
-                    $content[]=array(
-                        "Title"=>"地址：四川省成都市青羊区大墙西街33号鼓楼国际广场1712室
-Rm.1712, Gulou International, No.33 Daqiang Street(west), Qingyang District, Chengdu, Sichuan Prov.
+                            "Description"=>"",
+                            "PicUrl"=>"http://www.sd888.org/house/Upload/2009911542573175.jpg",
+                            "Url"=>"http://j.map.baidu.com/-Ajy0");
+
+                        //肇庆分部
+                        $content[]=array(
+                            "Title"=>"肇庆分部
+地址：广东省肇庆市端州区端州三路48号文化创意大厦2201室
+Rm.2201, Cultural and Creative building, No.48 Duanzhou 3rd Rd., Duanzhou District, Zhaoqing City, Guangdong Prov.",
+                            "Description"=>"",
+                            "PicUrl"=>"https://mmbiz.qlogo.cn/mmbiz/icJia8DFEzGtG54WbUEnuZUrVdQuiauaJBKDoprOnkavbkeZc4QqLlWob12icc7qyf3vUgjLCqicYkzyDFNRebeJIzA/0?wx_fmt=jpeg",
+                            "Url"=>"http://j.map.baidu.com/_m_d3");
+
+                        //成都分部
+                        $content[]=array(
+                            "Title"=>"成都鼓楼
+地址：四川省成都市青羊区大墙西街33号鼓楼国际广场1712室
+Rm.1712, Gulou International, No.33 Daqiang Street(west), Qingyang District, Chengdu City, Sichuan Prov.
 电话(Tel)：028-86786725",
-                        "Description"=>"",                   "PicUrl"=>"http://hiphotos.baidu.com/lbsugc/pic/item/5243fbf2b2119313faffd3d667380cd791238d13.jpg",
-                        "Url"=>"http://j.map.baidu.com/5m1v6");
-                break;
+                            "Description"=>"",                   "PicUrl"=>"http://hiphotos.baidu.com/lbsugc/pic/item/5243fbf2b2119313faffd3d667380cd791238d13.jpg",
+                            "Url"=>"http://j.map.baidu.com/5m1v6");
+                        //成都二部
+                        $content[]=array(
+                            "Title"=>"成都草堂
+地址：四川省成都市青羊区草堂路37号四楼
+4th Floor, No.37 Caotang Rd., Qingyang District, Chengdu City, Sichuan Prov.
+电话(Tel)：028-86114892",
+                            "Description"=>"",                   "PicUrl"=>"http://hiphotos.baidu.com/lbsugc/pic/item/5243fbf2b2119313faffd3d667380cd791238d13.jpg",
+                            "Url"=>"http://j.map.baidu.com/39LM5");
+
+                        break;
                 
-                case "巨牛天字一号":
-                include("get_juniu.php");
-                $content=getFundInfo();
-                break;
+               case "ziben":
+                   $fund = "ziben";
+                   $content = weixin_getdata($fund);
+                   break;
+
+               case "zhixuan":
+                        $fund = "zhixuan";
+                        $content="净值统计更新中";
+                        //$content = weixin_getdata($fund);
+                        break;
+
+               case "baoying":
+                        $fund = "baoying";
+                        $content="净值统计更新中";
+                        //$content = weixin_getdata($fund);
+                        break;
+
+               case "tianzi":
+                        $fund = "tianzi";
+                        $content = weixin_getdata($fund);
+                        break;
+
+               case "huanan":
+                        $fund = "huanan";
+                        $content = weixin_getdata($fund);
+                        break;
                 
-                case "巨牛天子期货1号":
-                include("future_1.php");
-                $content[]=array(
-                    "Title"=>getFundInfo(),
-                    "Description"=>"",
-                    "PicUrl"=>"",
-                    "Url"=>"http://qhsz.qhrb.com.cn/PlayerShow/Index.aspx?pid=4550");
-               
-                break;
-                
-                case "巨牛天子期货2号":
-                include("future_2.php");
-                $content=getFundInfo();
-                break;
-                
-                case "巨牛汇聪期货1号":
-                include("future_huicong1.php");
-                $content=getFundInfo();
-                break;
-                
-                case "巨牛汇聪期货2号":
-                include("future_huicong2.php");
-                $content=getFundInfo();
-                break;
+               case "在线咨询":
+                    $result=$this->transmitService($object);
+                    return $result;
+                    default:
+                        $content = "菜单默认回复";
+                        break;
+    
                 
                 
             }
-            break;     
-
-   }
+                break;
+            default:
+                break;
+        }
         if(is_array($content)){
             $result = $this->transmitNews($object, $content);
         }else{
             $result = $this->transmitText($object, $content);
         }
         return $result;
-}
-    
-    
+    }
+
+
     /*回复文字消息*/
-   private function transmitText($object, $content)
+    private function transmitText($object, $content)
     {
         $textTpl = "<xml>
 <ToUserName><![CDATA[%s]]></ToUserName>
@@ -291,8 +332,8 @@ Rm.1712, Gulou International, No.33 Daqiang Street(west), Qingyang District, Che
         $result = sprintf($textTpl, $object->FromUserName, $object->ToUserName, time(), $content);
         return $result;
     }
-    
-    
+
+
     /*
      * 回复图片消息
      */
@@ -315,8 +356,21 @@ $item_str
         $result = sprintf($textTpl, $object->FromUserName, $object->ToUserName, time());
         return $result;
     }
-    
-    
+
+    //回复多客服信息
+    private function transmitService($object)
+    {
+        $xmlTpl = "<xml>
+<ToUserName><![CDATA[%s]]></ToUserName>
+<FromUserName><![CDATA[%s]]></FromUserName>
+<CreateTime>%s</CreateTime>
+<MsgType><![CDATA[transfer_customer_service]]></MsgType>
+</xml>";
+        $result = sprintf($xmlTpl, $object->FromUserName, $object->ToUserName, time());
+        return $result;
+    }
+
+
     /*
      * 回复语音消息
      */
@@ -339,8 +393,8 @@ $item_str
         $result = sprintf($textTpl, $object->FromUserName, $object->ToUserName, time());
         return $result;
     }
-    
-    
+
+
     /*
      * 回复视频消息
      */
@@ -366,8 +420,26 @@ $item_str
         $result = sprintf($textTpl, $object->FromUserName, $object->ToUserName, time());
         return $result;
     }
-    
-    
+
+
+
+    private function logger($log_content)
+    {
+        if(isset($_SERVER['HTTP_APPNAME'])){   //SAE
+            sae_set_display_errors(false);
+            sae_debug($log_content);
+            sae_set_display_errors(true);
+        }else if($_SERVER['REMOTE_ADDR'] != "127.0.0.1"){ //LOCAL
+            $max_size = 10000;
+            $log_filename = "log.xml";
+            if(file_exists($log_filename) and (abs(filesize($log_filename)) > $max_size)){unlink($log_filename);}
+            file_put_contents($log_filename, date('H:i:s')." ".$log_content."\r\n", FILE_APPEND);
+        }
+    }
+
+
+
+
     /*
      * 回复图文消息
      */
@@ -401,8 +473,8 @@ $item_str</Articles>
         $result = sprintf($newsTpl, $object->FromUserName, $object->ToUserName, time(), count($arr_item));
         return $result;
     }
-    
-    
+
+
     /*
      * 回复音乐消息
      */

@@ -1,20 +1,33 @@
 <?php
 $jsonmenu = '{
-      "articles": [
-        {
-            "thumb_media_id":"qI6_Ze_6PtV7svjolgs-rN6stStuHIjs9_DidOHaj0Q-mwvBelOXCFZiq2OsIU-p",
-            "author":"xxx",
-            "title":"Happy Day",
-            "content_source_url":"http://viewer.maka.im/k/QK8RH4YH?DSCKID=c72f4b6a-08e3-41d1-addc-8745a56ab38c&DSTIMESTAMP=1442121473506",
-            "content":"content"
-        }
-    ]
+      "button":[
+      
+      {
+            "type":"view",
+            "name":"微官网",
+            "url":"http://338030.m.weimob.com/weisite/home?pid=338030&bid=567722&wechatid=fromUsername"
+       },
+       
+       
+       {
+           "type":"click",
+           "name":"联系我们",
+           "key":"联系我们"
+       },
+       
+       {
+           "type":"view",
+           "name":"参赛与开户",
+           "url":"http://1.jntz.applinzi.com/reg.html"
+       }
 
+       ]
  }';
 
-$access_token = get_access_token();
-$url = "https://api.weixin.qq.com/cgi-bin/media/uploadnews?access_token=".$access_token;
+$access_token = getAccessToken();
+$url = "https://api.weixin.qq.com/cgi-bin/menu/create?access_token=".$access_token;
 $result = https_request($url, $jsonmenu);
+echo $access_token;
 var_dump($result);
 
 function https_request($url,$data = null){
@@ -32,9 +45,9 @@ function https_request($url,$data = null){
     return $output;
 }
 
-function get_access_token(){
-    $appid="wxf48fcdeb3010abaa";
-    $appsecret="549abc38346419339be909b96893acfa";
+function getAccessToken(){
+    $appid="wx1cb861ec85faaf16";
+    $appsecret="108066d356e97386ad53c63be2e6a077";
     $url="https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=$appid&secret=$appsecret";
     $ch=curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
